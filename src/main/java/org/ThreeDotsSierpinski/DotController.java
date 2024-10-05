@@ -18,7 +18,7 @@ public class DotController extends JPanel {
     private static final int SIZE = 1000; // Размер панели
     private static final int DOT_SIZE = 2; // Размер точки
     private static final int TIMER_DELAY = 0; // Интервал между обновлениями в миллисекундах
-    private static final int DOTS_PER_UPDATE = 8; // Количество точек, добавляемых за одно обновление
+    private static final int DOTS_PER_UPDATE = 1; // Количество точек, добавляемых за одно обновление
     private static final long MIN_RANDOM_VALUE = -99999999L; // Минимальное значение диапазона случайных чисел
     private static final long MAX_RANDOM_VALUE = 100000000L; // Максимальное значение диапазона случайных чисел
 
@@ -52,18 +52,17 @@ public class DotController extends JPanel {
      * @param randomNumberProvider Провайдер случайных чисел
      */
     public DotController(RandomNumberProvider randomNumberProvider) {
-        currentPoint = new Point(SIZE / 2, SIZE / 2); // Начальная точка в центре
-        setPreferredSize(new Dimension(SIZE + 300, SIZE)); // Увеличиваем ширину панели для отображения стека чисел
-        setBackground(Color.WHITE); // Белый фон для лучшей видимости
-        dots = Collections.synchronizedList(new ArrayList<>()); // Инициализация синхронизированного списка точек
-        usedRandomNumbers = new ArrayList<>(); // Инициализация списка использованных случайных чисел
-        this.randomNumberProvider = randomNumberProvider; // Назначение провайдера случайных чисел
-        dotCounter = 0; // Инициализация счетчика точек
-        errorMessage = null; // Изначально отсутствует ошибка
+        this.randomNumberProvider = randomNumberProvider; // Инициализация провайдера случайных чисел
+        currentPoint = new Point(SIZE / 2, SIZE / 2);
+        setPreferredSize(new Dimension(SIZE + 300, SIZE));
+        setBackground(Color.WHITE);
+        dots = Collections.synchronizedList(new ArrayList<>());
+        usedRandomNumbers = new ArrayList<>();
+        dotCounter = 0;
+        errorMessage = null;
 
-        // Инициализация буфера оффскрина
         offscreenImage = new BufferedImage(SIZE, SIZE, BufferedImage.TYPE_INT_ARGB);
-        scheduler = Executors.newScheduledThreadPool(1); // Инициализация планировщика
+        scheduler = Executors.newScheduledThreadPool(1);
     }
 
     /**
@@ -151,6 +150,13 @@ public class DotController extends JPanel {
         drawRandomNumbersStack(g);
     }
 
+    public long getNextRandomNumberInRange(long min, long max) {
+        int randomNum = randomNumberProvider.getNextRandomInteger(); // Используйте объект randomNumberProvider
+        double normalized = (randomNum - (double) Integer.MIN_VALUE) / ((double) Integer.MAX_VALUE - (double) Integer.MIN_VALUE); // Нормализация числа к диапазону [0.0, 1.0]
+        long range = max - min; // Вычисление диапазона
+        return min + (long) (normalized * range); // Масштабирование числа к заданному диапазону
+    }
+
     /**
      * Вычисляет новое положение точки на основе случайного числа.
      *
@@ -204,6 +210,7 @@ public class DotController extends JPanel {
         g2d.dispose(); // Освобождение контекста графики
     }
 
+
     /**
      * Отрисовывает стек использованных случайных чисел справа от треугольника.
      *
@@ -219,11 +226,11 @@ public class DotController extends JPanel {
         int startX = SIZE + 20; // Начальная позиция по оси X, справа от треугольника
         int startY = 20; // Начальная позиция по оси Y, сверху панели
 
-        int column = maxColumns - 1; // Начинаем с самой правой колонки
+        int column = 0; // Начинаем с самой левой колонки
         int row = 0; // Стартуем с самой верхней строки
 
-        // Перебор использованных случайных чисел в обратном порядке для заполнения справа налево
-        for (int i = usedRandomNumbers.size() - 1; i >= 0; i--) {
+        // Перебор использованных случайных чисел в прямом порядке для заполнения слева направо
+        for (int i = 0; i < usedRandomNumbers.size(); i++) {
             Long randomValue = usedRandomNumbers.get(i);
 
             // Определение позиции для текущего числа
@@ -236,16 +243,17 @@ public class DotController extends JPanel {
             // Переход на следующую строку
             row++;
 
-            // Если достигли конца текущей колонки, переходим к следующей колонке слева
+            // Если достигли конца текущей колонки, переходим к следующей колонке справа
             if (row >= maxRowsPerColumn) {
                 row = 0;
-                column--;
+                column++;
 
                 // Если колонок больше не осталось, прекращаем отображение чисел
-                if (column < 0) {
+                if (column >= maxColumns) {
                     break;
                 }
             }
         }
     }
+
 }
