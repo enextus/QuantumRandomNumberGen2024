@@ -37,4 +37,5 @@ public record Dot(Point point) {
     public String toString() {
         return point.x + "," + point.y;
     }
+
 }

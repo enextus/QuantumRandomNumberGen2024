@@ -4,7 +4,6 @@ import java.util.Arrays;
 import java.util.Random;
 
 public class KolmogorovSmirnovTest {
-
     public static void main(String[] args) {
         // Генерация выборки случайных чисел
         int sampleSize = 1000;
@@ -63,4 +62,5 @@ public class KolmogorovSmirnovTest {
             return (value - a) / (b - a);
         }
     }
+
 }

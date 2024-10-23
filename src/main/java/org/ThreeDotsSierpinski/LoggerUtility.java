@@ -51,4 +51,5 @@ public class LoggerUtility {
         }
         return Logger.getLogger("");
     }
+
 }

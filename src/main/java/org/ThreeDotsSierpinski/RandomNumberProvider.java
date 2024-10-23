@@ -33,8 +33,6 @@ public class RandomNumberProvider {
     private final ExecutorService executorService; // Пул потоков для асинхронных задач
     private volatile boolean isLoading = false; // Флаг загрузки данных
 
-
-
     public RandomNumberProvider() {
         randomNumbersQueue = new LinkedBlockingQueue<>();
         objectMapper = new ObjectMapper();
@@ -203,8 +201,6 @@ public class RandomNumberProvider {
         return min + (long) (normalized * range);
     }
 
-
-
     public void shutdown() {
         executorService.shutdown();
         try {
@@ -220,4 +216,5 @@ public class RandomNumberProvider {
         }
         LOGGER.info("ExecutorService успешно завершен.");
     }
+
 }
