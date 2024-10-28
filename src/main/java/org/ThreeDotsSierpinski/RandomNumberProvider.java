@@ -12,36 +12,37 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.io.IOException;
 import java.util.NoSuchElementException;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 import java.util.logging.Logger;
 import java.util.logging.Level;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class RandomNumberProvider {
     private static final Logger LOGGER = LoggerConfig.getLogger();
 
     private static final String API_URL = "https://lfdr.de/qrng_api/qrng"; // URL API для получения случайных чисел
     private static final int MAX_API_REQUESTS = 25; // Максимальное количество запросов к API
+    private static final int QUEUE_SIZE = 2000; // Размер очереди для хранения случайных чисел
+    private static final int MAX_RETRY_ATTEMPTS = 3; // Максимальное количество попыток при сбое подключения
     private final BlockingQueue<Integer> randomNumbersQueue; // Очередь для хранения случайных чисел
     private final ObjectMapper objectMapper; // Объект для обработки JSON
     private int apiRequestCount = 0; // Счетчик количества выполненных API-запросов
-    private final Object lock = new Object(); // Блокировка для синхронизации вызовов loadInitialData
+    private final Lock lock = new ReentrantLock(); // Блокировка для синхронизации вызовов loadInitialData
 
     private final ExecutorService executorService; // Пул потоков для асинхронных задач
     private volatile boolean isLoading = false; // Флаг загрузки данных
 
     public RandomNumberProvider() {
-        randomNumbersQueue = new LinkedBlockingQueue<>();
+        randomNumbersQueue = new LinkedBlockingQueue<>(QUEUE_SIZE);
         objectMapper = new ObjectMapper();
-        executorService = Executors.newSingleThreadExecutor();
+        executorService = Executors.newFixedThreadPool(2);
         loadInitialDataAsync();
     }
 
     private void loadInitialDataAsync() {
-        synchronized (lock) {
+        lock.lock();
+        try {
             if (isLoading || apiRequestCount >= MAX_API_REQUESTS) {
                 if (apiRequestCount >= MAX_API_REQUESTS) {
                     LOGGER.warning("Достигнуто максимальное количество запросов к API: " + MAX_API_REQUESTS);
@@ -50,62 +51,77 @@ public class RandomNumberProvider {
             }
             isLoading = true;
             executorService.submit(this::loadInitialData);
+        } finally {
+            lock.unlock();
         }
     }
 
     private void loadInitialData() {
-        try {
-            int n = 1024; // Количество случайных байтов для загрузки
-            String requestUrl = API_URL + "?length=" + n + "&format=HEX";
+        int retryAttempts = 0;
+        boolean success = false;
 
-            LOGGER.info("Отправка запроса: " + requestUrl);
+        while (retryAttempts < MAX_RETRY_ATTEMPTS && !success) {
+            try {
+                int n = 1024; // Количество случайных байтов для загрузки
+                String requestUrl = API_URL + "?length=" + n + "&format=HEX";
 
-            URI uri = new URI(requestUrl);
-            URL url = uri.toURL();
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            conn.setConnectTimeout(5000);
-            conn.setReadTimeout(5000);
+                LOGGER.info("Отправка запроса: " + requestUrl);
 
-            String responseBody = getResponseBody(conn);
-            LOGGER.info("Получен ответ: " + responseBody);
+                URI uri = new URI(requestUrl);
+                URL url = uri.toURL();
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(5000);
+                conn.setReadTimeout(5000);
 
-            JsonNode rootNode = objectMapper.readTree(responseBody);
+                String responseBody = getResponseBody(conn);
+                LOGGER.info("Получен ответ: " + responseBody);
 
-            if (rootNode.has("qrn")) {
-                String hexData = rootNode.get("qrn").asText();
-                byte[] byteArray = hexStringToByteArray(hexData);
+                JsonNode rootNode = objectMapper.readTree(responseBody);
 
-                for (byte b : byteArray) {
-                    int num = b & 0xFF;
-                    try {
-                        randomNumbersQueue.put(num);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        LOGGER.log(Level.WARNING, "Поток был прерван при добавлении числа в очередь: " + num, e);
+                if (rootNode.has("qrn")) {
+                    String hexData = rootNode.get("qrn").asText();
+                    byte[] byteArray = hexStringToByteArray(hexData);
+
+                    for (byte b : byteArray) {
+                        int num = b & 0xFF;
+                        try {
+                            randomNumbersQueue.put(num);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            LOGGER.log(Level.WARNING, "Поток был прерван при добавлении числа в очередь: " + num, e);
+                        }
                     }
+                    lock.lock();
+                    try {
+                        apiRequestCount++;
+                    } finally {
+                        lock.unlock();
+                    }
+                    LOGGER.info("Количество запросов к API: " + apiRequestCount);
+                    success = true;
+                } else if (rootNode.has("error")) {
+                    String errorMsg = rootNode.get("error").asText();
+                    LOGGER.severe("Ошибка при получении случайных чисел: " + errorMsg);
+                } else {
+                    LOGGER.warning("Неожиданный ответ от сервера.");
                 }
-                synchronized (lock) {
-                    apiRequestCount++;
-                }
-                LOGGER.info("Количество запросов к API: " + apiRequestCount);
-            } else if (rootNode.has("error")) {
-                String errorMsg = rootNode.get("error").asText();
-                LOGGER.severe("Ошибка при получении случайных чисел: " + errorMsg);
-            } else {
-                LOGGER.warning("Неожиданный ответ от сервера.");
-            }
 
-            conn.disconnect();
-        } catch (URISyntaxException | IOException e) {
-            LOGGER.log(Level.SEVERE, "Не удалось получить данные из QRNG API.", e);
+                conn.disconnect();
+            } catch (URISyntaxException | IOException e) {
+                retryAttempts++;
+                LOGGER.log(Level.WARNING, "Попытка " + retryAttempts + " не удалась. Не удалось получить данные из QRNG API.", e);
+            }
+        }
+
+        lock.lock();
+        try {
+            isLoading = false;
         } finally {
-            synchronized (lock) {
-                isLoading = false;
-            }
-            if (randomNumbersQueue.size() < 1000 && apiRequestCount < MAX_API_REQUESTS) {
-                loadInitialDataAsync();
-            }
+            lock.unlock();
+        }
+        if (randomNumbersQueue.size() < 1000 && apiRequestCount < MAX_API_REQUESTS) {
+            loadInitialDataAsync();
         }
     }
 
@@ -121,7 +137,6 @@ public class RandomNumberProvider {
 
         return response.toString();
     }
-
 
     private byte[] hexStringToByteArray(String s) {
         int len = s.length();
@@ -156,15 +171,17 @@ public class RandomNumberProvider {
         return (randomNum1 << 24) | (randomNum2 << 16) | (randomNum3 << 8) | randomNum4;
     }
 
-
     public int getNextRandomNumber() {
         try {
             Integer nextNumber = randomNumbersQueue.poll(5, TimeUnit.SECONDS);
             if (nextNumber == null) {
-                synchronized (lock) {
+                lock.lock();
+                try {
                     if (apiRequestCount >= MAX_API_REQUESTS) {
                         throw new NoSuchElementException("Достигнуто максимальное количество запросов к API и нет доступных случайных чисел.");
                     }
+                } finally {
+                    lock.unlock();
                 }
                 loadInitialDataAsync();
                 nextNumber = randomNumbersQueue.poll(5, TimeUnit.SECONDS);
@@ -216,5 +233,4 @@ public class RandomNumberProvider {
         }
         LOGGER.info("ExecutorService успешно завершен.");
     }
-
 }
