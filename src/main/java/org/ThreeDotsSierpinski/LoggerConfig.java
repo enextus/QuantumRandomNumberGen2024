@@ -10,11 +10,12 @@ import java.util.logging.*;
 public class LoggerConfig {
     private static final Logger LOGGER = Logger.getLogger(LoggerConfig.class.getName());
     private static final String LOG_FILE_NAME = "app.log";
+    private static final long MAX_LOG_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
     private static boolean isInitialized = false;
 
     /**
      * Инициализирует конфигурацию логгера.
-     * Удаляет существующий лог-файл и настраивает новый FileHandler.
+     * Проверяет существование файла лога и его размер. Удаляет существующий лог-файл, если он превышает лимит, и настраивает новый FileHandler.
      */
     public static synchronized void initializeLogger() {
         if (isInitialized) {
@@ -25,8 +26,10 @@ public class LoggerConfig {
             // Определение пути к файлу лога
             Path logFilePath = Paths.get(LOG_FILE_NAME);
 
-            // Удаление файла лога, если он существует, для обеспечения чистого старта
-            Files.deleteIfExists(logFilePath);
+            // Проверка размера файла лога и удаление, если превышает лимит
+            if (Files.exists(logFilePath) && Files.size(logFilePath) > MAX_LOG_FILE_SIZE) {
+                Files.delete(logFilePath);
+            }
 
             // Инициализация FileHandler с append=false для перезаписи файла лога
             FileHandler fileHandler = new FileHandler(LOG_FILE_NAME, false);
