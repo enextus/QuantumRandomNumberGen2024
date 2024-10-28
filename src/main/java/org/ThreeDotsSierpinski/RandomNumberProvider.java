@@ -28,6 +28,7 @@ public class RandomNumberProvider {
     private final BlockingQueue<Integer> randomNumbersQueue; // Очередь для хранения случайных чисел
     private final ObjectMapper objectMapper; // Объект для обработки JSON
     private int apiRequestCount = 0; // Счетчик количества выполненных API-запросов
+
     private final Lock lock = new ReentrantLock(); // Блокировка для синхронизации вызовов loadInitialData
 
     private final ExecutorService executorService; // Пул потоков для асинхронных задач
