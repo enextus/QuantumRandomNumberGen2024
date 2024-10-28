@@ -34,13 +34,6 @@ public class LoggerConfig {
 
             // Получение корневого логгера
             Logger rootLogger = Logger.getLogger("");
-            // Удаление стандартных консольных обработчиков для предотвращения дублирования логов
-            Handler[] handlers = rootLogger.getHandlers();
-            for (Handler handler : handlers) {
-                if (handler instanceof ConsoleHandler) {
-                    rootLogger.removeHandler(handler);
-                }
-            }
 
             // Добавление FileHandler к корневому логгеру
             rootLogger.addHandler(fileHandler);
