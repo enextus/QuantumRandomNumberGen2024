@@ -3,9 +3,7 @@ package org.ThreeDotsSierpinski;
 import java.awt.*;
 
 /**
- * Запись Dot представляет точку с координатами на плоскости.
- *
- * @param point Координаты точки
+ * Класс Dot представляет точку с координатами на плоскости.
  */
 public record Dot(Point point) {
     /**
@@ -29,7 +27,7 @@ public record Dot(Point point) {
     }
 
     /**
-     * Переопределяет метод toString для предоставления представления через запятую.
+     * Переопределяет метод toString для представления координат точки через запятую.
      *
      * @return Строка в формате "x, y"
      */
@@ -37,5 +35,4 @@ public record Dot(Point point) {
     public String toString() {
         return point.x + "," + point.y;
     }
-
 }

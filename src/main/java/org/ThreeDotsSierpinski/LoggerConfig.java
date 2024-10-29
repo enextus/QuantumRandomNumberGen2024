@@ -5,7 +5,7 @@ import java.nio.file.*;
 import java.util.logging.*;
 
 /**
- * Конфигурация логгера для приложения.
+ * Класс конфигурации логгера для приложения.
  */
 public class LoggerConfig {
     private static final Logger LOGGER = Logger.getLogger(LoggerConfig.class.getName());
@@ -26,7 +26,7 @@ public class LoggerConfig {
             // Определение пути к файлу лога
             Path logFilePath = Paths.get(LOG_FILE_NAME);
 
-            // Проверка размера файла лога и удаление, если превышает лимит
+            // Проверка размера файла лога и удаление, если он превышает лимит
             if (Files.exists(logFilePath) && Files.size(logFilePath) > MAX_LOG_FILE_SIZE) {
                 Files.delete(logFilePath);
             }
@@ -37,6 +37,13 @@ public class LoggerConfig {
 
             // Получение корневого логгера
             Logger rootLogger = Logger.getLogger("");
+
+            // Удаление стандартного ConsoleHandler для логгера
+            for (Handler handler : rootLogger.getHandlers()) {
+                if (handler instanceof ConsoleHandler) {
+                    rootLogger.removeHandler(handler);
+                }
+            }
 
             // Добавление FileHandler к корневому логгеру
             rootLogger.addHandler(fileHandler);

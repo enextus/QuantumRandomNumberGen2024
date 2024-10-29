@@ -27,11 +27,6 @@ public class DotController extends JPanel {
     private static final String LOG_DOTS_PROCESSED = "Обработано %d новых точек.";
     private static final String LOG_ERROR_MOVEMENT = "Обнаружена ошибка при перемещении точек: %s";
 
-    // Константы для визуализации стека чисел
-    private static final int COLUMN_WIDTH = 100; // Ширина колонки для чисел
-    private static final int ROW_HEIGHT = 20; // Высота строки для каждого числа
-    private static final int COLUMN_SPACING = 20; // Расстояние между колонками
-
     private final List<Dot> dots; // Список точек
     private final List<Long> usedRandomNumbers; // Список использованных случайных чисел для визуализации
     private final RandomNumberProvider randomNumberProvider; // Провайдер случайных чисел
@@ -146,15 +141,59 @@ public class DotController extends JPanel {
             g.drawString(errorMessage, 10, 60);
         }
 
-        // Отрисовка стека использованных случайных чисел справа от треугольника
-        drawRandomNumbersStack(g);
+        // Отрисовка пирамиды из случайных чисел
+        drawRandomNumbersPyramid(g);
     }
 
-    public long getNextRandomNumberInRange(long min, long max) {
-        int randomNum = randomNumberProvider.getNextRandomInteger(); // Используйте объект randomNumberProvider
-        double normalized = (randomNum - (double) Integer.MIN_VALUE) / ((double) Integer.MAX_VALUE - (double) Integer.MIN_VALUE); // Нормализация числа к диапазону [0.0, 1.0]
-        long range = max - min; // Вычисление диапазона
-        return min + (long) (normalized * range); // Масштабирование числа к заданному диапазону
+    /**
+     * Метод для отрисовки пирамиды случайных чисел.
+     *
+     * @param g Объект Graphics для рисования
+     */
+    private void drawRandomNumbersPyramid(Graphics g) {
+        g.setColor(Color.BLACK);
+
+        int startX = SIZE + 20 + 450; // Начальная позиция по X (справа от треугольника) сдвинута вправо на 450 пикселей
+        int startY = 20; // Начальная позиция по Y (вверху панели)
+        int level = 1; // Текущий уровень пирамиды
+        int numbersInLevel = 1; // Количество чисел на текущем уровне
+        int index = 0; // Индекс текущего числа
+        double shrinkFactor = 0.35; // Итоговый коэффициент уменьшения основания на 65%
+
+        // Проходим по всем числам в usedRandomNumbers и располагаем их в форме пирамиды
+        while (index < usedRandomNumbers.size()) {
+            int levelWidth = (int) (numbersInLevel * 80 * shrinkFactor); // Общая ширина уровня, уменьшенная на 65%
+            int xLevelStart = startX - levelWidth / 2; // Центрирование уровня по X с учетом shrinkFactor
+
+            // Рисуем числа на текущем уровне
+            for (int i = 0; i < numbersInLevel && index < usedRandomNumbers.size(); i++) {
+                int x = xLevelStart + i * (int)(80 * shrinkFactor); // Учитываем уменьшенную ширину между числами
+                int y = startY + level * 40;
+
+                g.drawString(usedRandomNumbers.get(index).toString(), x, y);
+                index++;
+            }
+
+            // Переход к следующему уровню
+            level++;
+            numbersInLevel++;
+        }
+    }
+
+
+    /**
+     * Рисует новые точки на буфере.
+     *
+     * @param newDots Список новых точек для рисования
+     * @param color   Цвет для рисования точек
+     */
+    private void drawDots(List<Dot> newDots, Color color) {
+        Graphics2D g2d = offscreenImage.createGraphics(); // Получение контекста графики буфера
+        g2d.setColor(color); // Установка цвета для рисования точек
+        for (Dot dot : newDots) {
+            g2d.fillRect(dot.point().x, dot.point().y, DOT_SIZE, DOT_SIZE); // Рисование точки
+        }
+        g2d.dispose(); // Освобождение контекста графики
     }
 
     /**
@@ -194,65 +233,4 @@ public class DotController extends JPanel {
 
         return new Point(x, y); // Возвращение нового положения точки
     }
-
-    /**
-     * Рисует новые точки на буфере.
-     *
-     * @param newDots Список новых точек для рисования
-     * @param color   Цвет для рисования точек
-     */
-    private void drawDots(List<Dot> newDots, Color color) {
-        Graphics2D g2d = offscreenImage.createGraphics(); // Получение контекста графики буфера
-        g2d.setColor(color); // Установка цвета для рисования точек
-        for (Dot dot : newDots) {
-            g2d.fillRect(dot.point().x, dot.point().y, DOT_SIZE, DOT_SIZE); // Рисование точки
-        }
-        g2d.dispose(); // Освобождение контекста графики
-    }
-
-    /**
-     * Отрисовывает стек использованных случайных чисел справа от треугольника.
-     *
-     * @param g Объект Graphics для рисования
-     */
-    private void drawRandomNumbersStack(Graphics g) {
-        g.setColor(Color.BLACK);
-
-        int maxColumns = 4; // Максимальное количество колонок для отображения
-        int maxRowsPerColumn = SIZE / ROW_HEIGHT; // Количество строк, помещающихся в одной колонке
-
-        // Определение начальной позиции для рисования чисел
-        int startX = SIZE + 20; // Начальная позиция по оси X, справа от треугольника
-        int startY = 20; // Начальная позиция по оси Y, сверху панели
-
-        int column = 0; // Начинаем с самой левой колонки
-        int row = 0; // Стартуем с самой верхней строки
-
-        // Перебор использованных случайных чисел в прямом порядке для заполнения слева направо
-        for (int i = 0; i < usedRandomNumbers.size(); i++) {
-            Long randomValue = usedRandomNumbers.get(i);
-
-            // Определение позиции для текущего числа
-            int x = startX + column * (COLUMN_WIDTH + COLUMN_SPACING);
-            int y = startY + row * ROW_HEIGHT;
-
-            // Отрисовка числа
-            g.drawString(randomValue.toString(), x, y);
-
-            // Переход на следующую строку
-            row++;
-
-            // Если достигли конца текущей колонки, переходим к следующей колонке справа
-            if (row >= maxRowsPerColumn) {
-                row = 0;
-                column++;
-
-                // Если колонок больше не осталось, прекращаем отображение чисел
-                if (column >= maxColumns) {
-                    break;
-                }
-            }
-        }
-    }
-
 }

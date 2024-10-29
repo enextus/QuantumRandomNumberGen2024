@@ -30,7 +30,6 @@ public class RandomNumberProvider {
     private int apiRequestCount = 0; // Счетчик количества выполненных API-запросов
 
     private final Lock lock = new ReentrantLock(); // Блокировка для синхронизации вызовов loadInitialData
-
     private final ExecutorService executorService; // Пул потоков для асинхронных задач
     private volatile boolean isLoading = false; // Флаг загрузки данных
 
@@ -41,6 +40,9 @@ public class RandomNumberProvider {
         loadInitialDataAsync();
     }
 
+    /**
+     * Асинхронная загрузка начальных данных из API.
+     */
     private void loadInitialDataAsync() {
         lock.lock();
         try {
@@ -57,6 +59,9 @@ public class RandomNumberProvider {
         }
     }
 
+    /**
+     * Загрузка данных из API с обработкой ошибок и попытками переподключения.
+     */
     private void loadInitialData() {
         int retryAttempts = 0;
         boolean success = false;
@@ -126,6 +131,13 @@ public class RandomNumberProvider {
         }
     }
 
+    /**
+     * Получает тело ответа HTTP-запроса.
+     *
+     * @param conn объект HttpURLConnection
+     * @return тело ответа в виде строки
+     * @throws IOException если не удается прочитать ответ
+     */
     private static @NotNull String getResponseBody(HttpURLConnection conn) throws IOException {
         BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
         StringBuilder response = new StringBuilder();
@@ -139,6 +151,12 @@ public class RandomNumberProvider {
         return response.toString();
     }
 
+    /**
+     * Конвертирует HEX-строку в массив байтов.
+     *
+     * @param s строка HEX
+     * @return массив байтов
+     */
     private byte[] hexStringToByteArray(String s) {
         int len = s.length();
         if (len % 2 != 0) {
@@ -160,7 +178,7 @@ public class RandomNumberProvider {
      * Получает следующее случайное число в диапазоне от Integer.MIN_VALUE до Integer.MAX_VALUE.
      *
      * @return Случайное целое число в диапазоне от Integer.MIN_VALUE до Integer.MAX_VALUE.
-     * @throws NoSuchElementException Если нет доступных случайных чисел.
+     * @throws NoSuchElementException если нет доступных случайных чисел
      */
     public int getNextRandomInteger() {
         int randomNum1 = getNextRandomNumber(); // Получение случайного числа от 0 до 255
@@ -172,6 +190,12 @@ public class RandomNumberProvider {
         return (randomNum1 << 24) | (randomNum2 << 16) | (randomNum3 << 8) | randomNum4;
     }
 
+    /**
+     * Получает следующее случайное число из очереди, загруженной из API.
+     *
+     * @return случайное число от 0 до 255
+     * @throws NoSuchElementException если нет доступных случайных чисел
+     */
     public int getNextRandomNumber() {
         try {
             Integer nextNumber = randomNumbersQueue.poll(5, TimeUnit.SECONDS);
@@ -201,12 +225,12 @@ public class RandomNumberProvider {
     }
 
     /**
-     * Получает следующее случайное число в диапазоне от min до max.
+     * Получает следующее случайное число в заданном диапазоне.
      *
-     * @param min Минимальное значение диапазона
-     * @param max Максимальное значение диапазона
-     * @return Случайное число в заданном диапазоне
-     * @throws NoSuchElementException Если нет доступных случайных чисел
+     * @param min минимальное значение диапазона
+     * @param max максимальное значение диапазона
+     * @return случайное число в указанном диапазоне
+     * @throws NoSuchElementException если нет доступных случайных чисел
      */
     public long getNextRandomNumberInRange(long min, long max) {
         int randomNum = getNextRandomInteger(); // Получение случайного числа от Integer.MIN_VALUE до Integer.MAX_VALUE
@@ -219,6 +243,9 @@ public class RandomNumberProvider {
         return min + (long) (normalized * range);
     }
 
+    /**
+     * Завершает работу ExecutorService и освобождает ресурсы.
+     */
     public void shutdown() {
         executorService.shutdown();
         try {

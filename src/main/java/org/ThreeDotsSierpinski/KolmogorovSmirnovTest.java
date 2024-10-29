@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.Random;
 
 public class KolmogorovSmirnovTest {
+
     public static void main(String[] args) {
         // Генерация выборки случайных чисел
         int sampleSize = 1000;
@@ -29,6 +30,13 @@ public class KolmogorovSmirnovTest {
         }
     }
 
+    /**
+     * Выполняет тест Колмогорова-Смирнова на соответствие равномерному распределению.
+     *
+     * @param sample выборка случайных чисел
+     * @param alpha  уровень значимости
+     * @return true, если выборка соответствует ожидаемому распределению, иначе false
+     */
     public static boolean test(int[] sample, double alpha) {
         // Сортируем выборку по возрастанию
         Arrays.sort(sample);
@@ -51,6 +59,12 @@ public class KolmogorovSmirnovTest {
         return maxDeviation <= criticalValue;
     }
 
+    /**
+     * Вычисляет теоретическую функцию распределения для равномерного распределения.
+     *
+     * @param value значение случайного числа
+     * @return значение функции распределения в этой точке
+     */
     private static double calculateTheoreticalCDF(double value) {
         double a = -99999999;
         double b = 100000000;
@@ -62,5 +76,4 @@ public class KolmogorovSmirnovTest {
             return (value - a) / (b - a);
         }
     }
-
 }
