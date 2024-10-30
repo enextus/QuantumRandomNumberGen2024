@@ -33,7 +33,7 @@ public record Dot(Point point) {
      */
     @Override
     public String toString() {
-        return point.x + "," + point.y;
+        return String.format("%d,%d", point.x, point.y);
     }
 
 }

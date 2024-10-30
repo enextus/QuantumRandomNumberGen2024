@@ -24,12 +24,10 @@ public class DotController extends JPanel {
     private static final long MAX_RANDOM_VALUE = 100000000L;
 
     // Константы для визуализации и параметров пирамиды
-    private static final int PYRAMID_OFFSET_X = 450;
-    private static final int PYRAMID_START_Y = 20;
+
     private static final int LEVEL_HEIGHT = 40;
     private static final int NUM_SPACING = 80;
-    private static final double SHRINK_FACTOR = 0.35;
-    private static final int MAX_PYRAMID_LEVELS = 24;
+
 
     // Константы для сообщений и логирования
     private static final String ERROR_NO_RANDOM_NUMBERS = "Больше нет доступных случайных чисел: ";
@@ -53,6 +51,8 @@ public class DotController extends JPanel {
     private int currentRandomValueIndex = 0;
     private Long currentRandomValue;
     private static final Logger LOGGER = LoggerConfig.getLogger();
+
+    private final List<Integer> numbers = new ArrayList<>(); // Инициализируйте список для хранения чисел
 
     public DotController(RandomNumberProvider randomNumberProvider) {
         this.randomNumberProvider = randomNumberProvider;
@@ -82,6 +82,9 @@ public class DotController extends JPanel {
                         currentPoint = calculateNewDotPosition(currentPoint, randomValue);
                         Dot newDot = new Dot(new Point(currentPoint));
                         newDots.add(newDot);
+
+                        // Добавление полученного числа в список numbers
+                        numbers.add((int) randomValue);
                     } catch (NoSuchElementException ex) {
                         if (errorMessage == null) {
                             errorMessage = ex.getMessage();
@@ -132,32 +135,46 @@ public class DotController extends JPanel {
         }
 
         drawFallingNumbers(g);
-    }
 
-    private void drawFallingNumbers(Graphics g) {
-        g.setColor(Color.BLACK);
-
-        int startX = SIZE + 20 + PYRAMID_OFFSET_X;
-        int baseY = PYRAMID_START_Y + MAX_PYRAMID_LEVELS * LEVEL_HEIGHT;
-        int levels = 20; // Количество уровней в треугольнике
-
-        Random random = new Random();
-
-        for (int i = 0; i < usedRandomNumbers.size(); i++) {
-            int level = random.nextInt(Math.min(i / 10 + 1, levels)); // Ограничиваем уровень
-            int xOffset = random.nextInt(NUM_SPACING) - NUM_SPACING / 2; // Случайное смещение по X
-            int yOffset = level * LEVEL_HEIGHT; // Смещение по Y в зависимости от уровня
-
-            g.drawString(usedRandomNumbers.get(i).toString(), startX + xOffset, baseY - yOffset);
+        // Draw "fallen" numbers at their respective positions
+        g.setColor(Color.MAGENTA);
+        for (int i = 0; i < fallenPositions.size() && i < numbers.size(); i++) {
+            Point position = fallenPositions.get(i);
+            g.drawString(String.valueOf(numbers.get(i)), position.x, position.y);
         }
     }
 
 
+    private static final int BASE_WIDTH = 20; // Количество чисел в самом нижнем уровне
+    private static final int HEIGHT = 10; // Количество уровней
+
+    private void drawFallingNumbers(Graphics g) {
+        int level = 0;
+        int currentNumberIndex = 0;
+        int offsetX = 900; // Смещение вправо на 600 пикселей
+
+        // Начинаем от основания треугольника и двигаемся вверх
+        for (int i = HEIGHT; i > 0; i--) {
+            int numbersInLevel = BASE_WIDTH * i / HEIGHT; // Количество чисел на текущем уровне
+            int startX = ((SIZE - numbersInLevel * 20) / 2) + offsetX; // Центрируем каждый уровень по X и смещаем вправо
+            int startY = SIZE - (level * 20); // Смещение вверх для уровня
+
+            for (int j = 0; j < numbersInLevel && currentNumberIndex < numbers.size(); j++) {
+                int x = startX + (j * 20); // Позиция X для каждого числа, равномерно распределяя по уровню
+                drawNumber(g, numbers.get(currentNumberIndex), x, startY);
+                currentNumberIndex++;
+            }
+            level++;
+        }
+    }
+
+    // Метод для отрисовки числа
+    private void drawNumber(Graphics g, int number, int x, int y) {
+        g.drawString(String.valueOf(number), x, y);
+    }
 
     private void updateFallingNumbers() {
         if (!usedRandomNumbers.isEmpty()) {
-            Long number = usedRandomNumbers.get(usedRandomNumbers.size() - 1);
-
             // Добавляем смещение для падения каждого нового числа
             int offsetX = (random.nextInt(3) - 1) * NUM_SPACING / 4; // случайное смещение по X
             int offsetY = (random.nextInt(3) - 1) * LEVEL_HEIGHT / 2; // случайное смещение по Y

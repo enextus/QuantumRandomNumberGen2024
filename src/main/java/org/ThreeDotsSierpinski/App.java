@@ -18,7 +18,7 @@ public class App {
 
     private static final Logger LOGGER = LoggerConfig.getLogger();
 
-    public static void main(String[] args) {
+    public static void main() {
         // Инициализация логгирования
         LoggerConfig.initializeLogger();
         LOGGER.info(LOG_APP_STARTED);
