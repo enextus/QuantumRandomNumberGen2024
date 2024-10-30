@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Random;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -14,77 +15,72 @@ import java.util.logging.Logger;
 import java.util.logging.Level;
 
 public class DotController extends JPanel {
-    // Константы для конфигурации
-    private static final int SIZE = 1000; // Размер панели
-    private static final int DOT_SIZE = 2; // Размер точки
-    private static final int TIMER_DELAY = 0; // Интервал между обновлениями в миллисекундах
-    private static final int DOTS_PER_UPDATE = 1; // Количество точек, добавляемых за одно обновление
-    private static final long MIN_RANDOM_VALUE = -99999999L; // Минимальное значение диапазона случайных чисел
-    private static final long MAX_RANDOM_VALUE = 100000000L; // Максимальное значение диапазона случайных чисел
+    // Константы для конфигурации панели
+    private static final int SIZE = 1000;
+    private static final int DOT_SIZE = 2;
+    private static final int TIMER_DELAY = 0;
+    private static final int DOTS_PER_UPDATE = 1;
+    private static final long MIN_RANDOM_VALUE = -99999999L;
+    private static final long MAX_RANDOM_VALUE = 100000000L;
+
+    // Константы для визуализации и параметров пирамиды
+    private static final int PYRAMID_OFFSET_X = 450;
+    private static final int PYRAMID_START_Y = 20;
+    private static final int LEVEL_HEIGHT = 40;
+    private static final int NUM_SPACING = 80;
+    private static final double SHRINK_FACTOR = 0.35;
+    private static final int MAX_PYRAMID_LEVELS = 24;
 
     // Константы для сообщений и логирования
     private static final String ERROR_NO_RANDOM_NUMBERS = "Больше нет доступных случайных чисел: ";
     private static final String LOG_DOTS_PROCESSED = "Обработано %d новых точек.";
     private static final String LOG_ERROR_MOVEMENT = "Обнаружена ошибка при перемещении точек: %s";
 
-    private final List<Dot> dots; // Список точек
-    private final List<Long> usedRandomNumbers; // Список использованных случайных чисел для визуализации
-    private final RandomNumberProvider randomNumberProvider; // Провайдер случайных чисел
-    private int dotCounter; // Счетчик точек
-    private volatile String errorMessage; // Сообщение об ошибке
-    private Point currentPoint; // Текущее положение точки
-    private final BufferedImage offscreenImage; // Буфер офф-скрина для рисования
-    private final ScheduledExecutorService scheduler; // Планировщик для смены цвета точки
+    // Константы для текстов на экране
+    private static final String DRAW_STRING_SAMPLE_INDEX = "Порядковый номер выборки: %d";
+    private static final String DRAW_STRING_CURRENT_RANDOM = "Текущее случайное число: %d";
 
-    private int currentRandomValueIndex = 0; // Порядковый номер текущего случайного числа
-    private Long currentRandomValue; // Текущее случайное число
+    private final List<Dot> dots;
+    private final List<Long> usedRandomNumbers;
+    private final List<Point> fallenPositions; // Список для позиций, где "упали" числа
+    private final RandomNumberProvider randomNumberProvider;
+    private volatile String errorMessage;
+    private Point currentPoint;
+    private final BufferedImage offscreenImage;
+    private final ScheduledExecutorService scheduler;
+    private final Random random; // Для генерации случайных смещений
 
+    private int currentRandomValueIndex = 0;
+    private Long currentRandomValue;
     private static final Logger LOGGER = LoggerConfig.getLogger();
 
-    /**
-     * Конструктор, принимающий RandomNumberProvider.
-     *
-     * @param randomNumberProvider Провайдер случайных чисел
-     */
     public DotController(RandomNumberProvider randomNumberProvider) {
-        this.randomNumberProvider = randomNumberProvider; // Инициализация провайдера случайных чисел
+        this.randomNumberProvider = randomNumberProvider;
         currentPoint = new Point(SIZE / 2, SIZE / 2);
         setPreferredSize(new Dimension(SIZE + 300, SIZE));
         setBackground(Color.WHITE);
         dots = Collections.synchronizedList(new ArrayList<>());
         usedRandomNumbers = new ArrayList<>();
-        dotCounter = 0;
+        fallenPositions = new ArrayList<>(); // Инициализация списка позиций упавших чисел
         errorMessage = null;
 
         offscreenImage = new BufferedImage(SIZE, SIZE, BufferedImage.TYPE_INT_ARGB);
         scheduler = Executors.newScheduledThreadPool(1);
+        random = new Random();
     }
 
-    /**
-     * Запускает обновление точек с использованием Timer.
-     */
     public void startDotMovement() {
         Timer timer = new Timer(TIMER_DELAY, e -> {
             if (errorMessage == null) {
                 List<Dot> newDots = new ArrayList<>();
-
-                for (int i = 0; i < DOTS_PER_UPDATE; i++) { // Цикл добавления точек
+                for (int i = 0; i < DOTS_PER_UPDATE; i++) {
                     try {
                         currentRandomValueIndex++;
-
-                        // Получение следующего случайного числа в указанном диапазоне
                         long randomValue = randomNumberProvider.getNextRandomNumberInRange(MIN_RANDOM_VALUE, MAX_RANDOM_VALUE);
-
-                        // Сохранение текущего случайного числа и добавление его в список использованных чисел
                         currentRandomValue = randomValue;
                         usedRandomNumbers.add(currentRandomValue);
-
-                        // Вычисление нового положения точки на основе случайного числа
                         currentPoint = calculateNewDotPosition(currentPoint, randomValue);
-
-                        // Создание новой точки
                         Dot newDot = new Dot(new Point(currentPoint));
-                        dotCounter++;
                         newDots.add(newDot);
                     } catch (NoSuchElementException ex) {
                         if (errorMessage == null) {
@@ -92,16 +88,15 @@ public class DotController extends JPanel {
                             LOGGER.log(Level.WARNING, ERROR_NO_RANDOM_NUMBERS + ex.getMessage());
                         }
                         ((Timer) e.getSource()).stop();
-                        break; // Выход из цикла
+                        break;
                     }
                 }
 
-                dots.addAll(newDots); // Добавление всех точек в список
-                drawDots(newDots, Color.RED); // Рисование новых точек красным цветом
-                repaint(); // Перерисовка панели после добавления всех точек
+                dots.addAll(newDots);
+                drawDots(newDots, Color.RED);
+                repaint();
                 LOGGER.fine(String.format(LOG_DOTS_PROCESSED, newDots.size()));
 
-                // Планируем смену цвета точки на черный через 1 секунду
                 scheduler.schedule(() -> {
                     drawDots(newDots, Color.BLACK);
                     repaint();
@@ -113,124 +108,95 @@ public class DotController extends JPanel {
             }
         });
         timer.start();
+
+        // Запуск процесса "падения" чисел
+        scheduler.scheduleAtFixedRate(this::updateFallingNumbers, 0, 500, TimeUnit.MILLISECONDS);
     }
 
-    /**
-     * Отрисовывает панель.
-     *
-     * @param g Объект Graphics для рисования
-     */
     @Override
     protected void paintComponent(Graphics g) {
-        super.paintComponent(g); // Вызов метода суперкласса для базовой отрисовки
-        g.drawImage(offscreenImage, 0, 0, null); // Отрисовка буферного изображения
+        super.paintComponent(g);
+        g.drawImage(offscreenImage, 0, 0, null);
 
-        // Отображение порядкового номера случайного числа
         g.setColor(Color.BLUE);
-        g.drawString("Порядковый номер выборки: " + currentRandomValueIndex, 10, 20);
+        g.drawString(String.format(DRAW_STRING_SAMPLE_INDEX, currentRandomValueIndex), 10, 20);
 
-        // Отображение текущего случайного числа
         if (currentRandomValue != null) {
             g.setColor(Color.BLACK);
-            g.drawString("Текущее случайное число: " + currentRandomValue, 10, 40);
+            g.drawString(String.format(DRAW_STRING_CURRENT_RANDOM, currentRandomValue), 10, 40);
         }
 
-        // Отображение сообщения об ошибке, если есть
         if (errorMessage != null) {
             g.setColor(Color.RED);
             g.drawString(errorMessage, 10, 60);
         }
 
-        // Отрисовка пирамиды из случайных чисел
-        drawRandomNumbersPyramid(g);
+        drawFallingNumbers(g);
     }
 
-    /**
-     * Метод для отрисовки пирамиды случайных чисел.
-     *
-     * @param g Объект Graphics для рисования
-     */
-    private void drawRandomNumbersPyramid(Graphics g) {
+    private void drawFallingNumbers(Graphics g) {
         g.setColor(Color.BLACK);
 
-        int startX = SIZE + 20 + 450; // Начальная позиция по X (справа от треугольника) сдвинута вправо на 450 пикселей
-        int startY = 20; // Начальная позиция по Y (вверху панели)
-        int level = 1; // Текущий уровень пирамиды
-        int numbersInLevel = 1; // Количество чисел на текущем уровне
-        int index = 0; // Индекс текущего числа
-        double shrinkFactor = 0.35; // Итоговый коэффициент уменьшения основания на 65%
+        int startX = SIZE + 20 + PYRAMID_OFFSET_X;
+        int baseY = PYRAMID_START_Y + MAX_PYRAMID_LEVELS * LEVEL_HEIGHT;
+        int levels = 20; // Количество уровней в треугольнике
 
-        // Проходим по всем числам в usedRandomNumbers и располагаем их в форме пирамиды
-        while (index < usedRandomNumbers.size()) {
-            int levelWidth = (int) (numbersInLevel * 80 * shrinkFactor); // Общая ширина уровня, уменьшенная на 65%
-            int xLevelStart = startX - levelWidth / 2; // Центрирование уровня по X с учетом shrinkFactor
+        Random random = new Random();
 
-            // Рисуем числа на текущем уровне
-            for (int i = 0; i < numbersInLevel && index < usedRandomNumbers.size(); i++) {
-                int x = xLevelStart + i * (int)(80 * shrinkFactor); // Учитываем уменьшенную ширину между числами
-                int y = startY + level * 40;
+        for (int i = 0; i < usedRandomNumbers.size(); i++) {
+            int level = random.nextInt(Math.min(i / 10 + 1, levels)); // Ограничиваем уровень
+            int xOffset = random.nextInt(NUM_SPACING) - NUM_SPACING / 2; // Случайное смещение по X
+            int yOffset = level * LEVEL_HEIGHT; // Смещение по Y в зависимости от уровня
 
-                g.drawString(usedRandomNumbers.get(index).toString(), x, y);
-                index++;
-            }
-
-            // Переход к следующему уровню
-            level++;
-            numbersInLevel++;
+            g.drawString(usedRandomNumbers.get(i).toString(), startX + xOffset, baseY - yOffset);
         }
     }
 
 
-    /**
-     * Рисует новые точки на буфере.
-     *
-     * @param newDots Список новых точек для рисования
-     * @param color   Цвет для рисования точек
-     */
+
+    private void updateFallingNumbers() {
+        if (!usedRandomNumbers.isEmpty()) {
+            Long number = usedRandomNumbers.get(usedRandomNumbers.size() - 1);
+
+            // Добавляем смещение для падения каждого нового числа
+            int offsetX = (random.nextInt(3) - 1) * NUM_SPACING / 4; // случайное смещение по X
+            int offsetY = (random.nextInt(3) - 1) * LEVEL_HEIGHT / 2; // случайное смещение по Y
+
+            fallenPositions.add(new Point(offsetX, offsetY)); // Добавляем новое случайное положение для числа
+            repaint();
+        }
+    }
+
     private void drawDots(List<Dot> newDots, Color color) {
-        Graphics2D g2d = offscreenImage.createGraphics(); // Получение контекста графики буфера
-        g2d.setColor(color); // Установка цвета для рисования точек
+        Graphics2D g2d = offscreenImage.createGraphics();
+        g2d.setColor(color);
         for (Dot dot : newDots) {
-            g2d.fillRect(dot.point().x, dot.point().y, DOT_SIZE, DOT_SIZE); // Рисование точки
+            g2d.fillRect(dot.point().x, dot.point().y, DOT_SIZE, DOT_SIZE);
         }
-        g2d.dispose(); // Освобождение контекста графики
+        g2d.dispose();
     }
 
-    /**
-     * Вычисляет новое положение точки на основе случайного числа.
-     *
-     * @param currentPoint Текущее положение точки
-     * @param randomValue  Случайное число для определения направления движения
-     * @return Новое положение точки
-     */
     private Point calculateNewDotPosition(Point currentPoint, long randomValue) {
-        long MinValue = MIN_RANDOM_VALUE;
-        long MaxValue = MAX_RANDOM_VALUE;
+        Point A = new Point(SIZE / 2, 0);
+        Point B = new Point(0, SIZE);
+        Point C = new Point(SIZE, SIZE);
 
-        // Фиксированные вершины треугольника
-        Point A = new Point(SIZE / 2, 0); // Верхняя вершина
-        Point B = new Point(0, SIZE); // Левый нижний угол
-        Point C = new Point(SIZE, SIZE); // Правый нижний угол
-
-        long rangePart = (MaxValue - MinValue) / 3; // Разделение диапазона на три части
+        long rangePart = (MAX_RANDOM_VALUE - MIN_RANDOM_VALUE) / 3;
 
         int x = currentPoint.x;
         int y = currentPoint.y;
 
-        if (randomValue <= MinValue + rangePart) {
-            // Движение к вершине A
+        if (randomValue <= MIN_RANDOM_VALUE + rangePart) {
             x = (x + A.x) / 2;
             y = (y + A.y) / 2;
-        } else if (randomValue <= MinValue + 2 * rangePart) {
-            // Движение к вершине B
+        } else if (randomValue <= MIN_RANDOM_VALUE + 2 * rangePart) {
             x = (x + B.x) / 2;
             y = (y + B.y) / 2;
         } else {
-            // Движение к вершине C
             x = (x + C.x) / 2;
             y = (y + C.y) / 2;
         }
 
-        return new Point(x, y); // Возвращение нового положения точки
+        return new Point(x, y);
     }
 }
