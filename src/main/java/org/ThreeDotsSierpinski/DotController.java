@@ -18,8 +18,6 @@ public class DotController extends JPanel {
     // Константы для конфигурации панели
     private static final int SIZE = 900; // Основной размер панели по высоте и ширине (в пикселях)
     private static final int DOT_SIZE = 2; // Размер отображаемой точки (ширина и высота в пикселях)
-    private static final int TIMER_DELAY = 0; // Задержка таймера в миллисекундах между обновлениями точек
-    private static final int DOTS_PER_UPDATE = 1; // Количество точек, добавляемых за один тик таймера
     private static final long MIN_RANDOM_VALUE = -99999999L; // Минимальное значение для генерации случайных чисел
     private static final long MAX_RANDOM_VALUE = 100000000L; // Максимальное значение для генерации случайных чисел
 
@@ -29,17 +27,15 @@ public class DotController extends JPanel {
      * BASE_WIDTH определяет количество чисел на самом нижнем уровне треугольника.
      * Увеличение этого значения увеличивает ширину основания треугольника,
      * позволяя разместить больше чисел на нижнем уровне.
-     *
      * Например, BASE_WIDTH = 16 означает, что на самом нижнем уровне будет 16 чисел,
      * и с каждым верхним уровнем количество чисел будет уменьшаться пропорционально.
      */
-    private static final int BASE_WIDTH = 16;
+    private static final int BASE_WIDTH = 15;
 
     /**
      * HEIGHT определяет количество уровней в треугольнике случайных чисел.
      * Увеличение этого значения увеличивает высоту треугольника,
      * добавляя больше уровней чисел.
-     *
      * Например, HEIGHT = 48 означает, что треугольник будет состоять из 48 уровней,
      * начиная с 16 чисел на нижнем уровне и уменьшаясь по одному числу на каждый верхний уровень.
      */
@@ -49,7 +45,6 @@ public class DotController extends JPanel {
      * LEVEL_HEIGHT определяет вертикальное расстояние между уровнями треугольника.
      * Увеличение этого значения увеличивает высоту каждого уровня,
      * делая треугольник выше и уменьшая плотность размещения чисел по вертикали.
-     *
      * Например, LEVEL_HEIGHT = 19 пикселей означает, что между каждым уровнем будет 19 пикселей вертикального пространства.
      */
     private static final int LEVEL_HEIGHT = 19;
@@ -58,7 +53,6 @@ public class DotController extends JPanel {
      * NUM_SPACING определяет горизонтальное расстояние между числами на одном уровне треугольника.
      * Увеличение этого значения увеличивает расстояние между числами,
      * делая треугольник шире и числа менее плотными по горизонтали.
-     *
      * Например, NUM_SPACING = 60 пикселей означает, что между двумя соседними числами на одном уровне будет 60 пикселей горизонтального пространства.
      */
     private static final int NUM_SPACING = 60;
@@ -69,13 +63,12 @@ public class DotController extends JPanel {
      * FILLING_SPEED определяет интервал времени (в миллисекундах) между добавлениями новых чисел в треугольник.
      * Например, если FILLING_SPEED = 1000, то новое число будет добавляться каждую секунду.
      */
-    private static final int FILLING_SPEED = 1000; // Интервал добавления новых чисел (в миллисекундах)
+    private static final int FILLING_SPEED = 70; // Интервал добавления новых чисел (в миллисекундах)
 
     // Константы для сообщений и логирования
     private static final String ERROR_NO_RANDOM_NUMBERS = "Больше нет доступных случайных чисел: ";
     private static final String LOG_DOTS_PROCESSED = "Обработано %d новых точек.";
     private static final String LOG_ERROR_MOVEMENT = "Обнаружена ошибка при перемещении точек: %s";
-
     // Константы для текстов на экране
     private static final String DRAW_STRING_SAMPLE_INDEX = "Порядковый номер выборки: %d";
     private static final String DRAW_STRING_CURRENT_RANDOM = "Текущее случайное число: %d";
@@ -99,9 +92,7 @@ public class DotController extends JPanel {
     public DotController(RandomNumberProvider randomNumberProvider) {
         this.randomNumberProvider = randomNumberProvider;
         currentPoint = new Point(SIZE / 2, SIZE / 2); // Инициализация текущей точки в центре панели
-        // **Увеличиваем размеры панели на 33% по ширине и высоте**
-        // Это обеспечивает дополнительное пространство для отображения увеличенного треугольника со случайными числами
-        setPreferredSize(new Dimension((int)((SIZE + 300) * 1.33), (int)(SIZE * 1.33)));
+        setPreferredSize(new Dimension((SIZE), SIZE));
         setBackground(Color.WHITE); // Установка фона панели в белый цвет
         dots = Collections.synchronizedList(new ArrayList<>()); // Инициализация синхронизированного списка точек
         usedRandomNumbers = new ArrayList<>(); // Инициализация списка использованных случайных чисел
@@ -197,7 +188,7 @@ public class DotController extends JPanel {
         // **Корректируем смещение вправо на основании увеличенной панели**
         // Значение offsetX определяет горизонтальное смещение треугольника случайных чисел
         // 1200 пикселей позволяют разместить треугольник справа от основного треугольника Серпинского
-        int offsetX = 1200; // Примерное новое смещение, можно подкорректировать
+        int offsetX = 1000; // Примерное новое смещение, можно подкорректировать
 
         // Начинаем от основания треугольника и двигаемся вверх по уровням
         for (int i = HEIGHT; i > 0; i--) {
@@ -206,11 +197,11 @@ public class DotController extends JPanel {
             int numbersInLevel = BASE_WIDTH * i / HEIGHT;
 
             // Рассчитываем начальную позицию X для текущего уровня
-            // Центрируем уровень по X и смещаем вправо на offsetX
+            // центрируем уровень по X и смещаем вправо на offsetX
             int startX = ((SIZE - numbersInLevel * NUM_SPACING) / 2) + offsetX;
 
             // Рассчитываем позицию Y для текущего уровня
-            // Начинаем от нижней части панели и двигаемся вверх с шагом LEVEL_HEIGHT
+            // начинаем от нижней части панели и двигаемся вверх с шагом LEVEL_HEIGHT.
             int startY = SIZE - (level * LEVEL_HEIGHT);
 
             // Отрисовываем числа на текущем уровне
@@ -285,4 +276,5 @@ public class DotController extends JPanel {
 
         return new Point(x, y); // Возвращение новой позиции точки
     }
+
 }
