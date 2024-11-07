@@ -30,14 +30,14 @@ public class DotController extends JPanel {
      * FILLING_SPEED_SECONDARY определяет интервал времени (в миллисекундах) между добавлениями новых чисел в правый треугольник.
      * Например, если FILLING_SPEED_SECONDARY = 1000, то новые числа будут добавляться каждую секунду.
      */
-    private static final int FILLING_SPEED_SECONDARY = 1000; // Интервал добавления новых чисел в правый треугольник (в миллисекундах)
+    private static final int FILLING_SPEED_SECONDARY = 500; // Интервал добавления новых чисел в правый треугольник (в миллисекундах)
 
     // **Константа для смещения правого треугольника**
     /**
      * RIGHT_TRIANGLE_OFFSET_X определяет горизонтальное смещение правого треугольника со случайными числами.
      * Значение 1000 пикселей позволяет разместить треугольник справа от основного треугольника Серпинского.
      */
-    private static final int RIGHT_TRIANGLE_OFFSET_X = 1000; // Горизонтальное смещение правого треугольника (в пикселях)
+    private static final int RIGHT_TRIANGLE_OFFSET_X = 900; // Горизонтальное смещение правого треугольника (в пикселях)
 
     private static final long MIN_RANDOM_VALUE = -99999999L; // Минимальное значение для генерации случайных чисел
     private static final long MAX_RANDOM_VALUE = 100000000L; // Максимальное значение для генерации случайных чисел
@@ -47,7 +47,6 @@ public class DotController extends JPanel {
      * BASE_WIDTH определяет количество чисел на самом нижнем уровне треугольника.
      * Увеличение этого значения увеличивает ширину основания треугольника,
      * позволяя разместить больше чисел на нижнем уровне.
-     *
      * Например, BASE_WIDTH = 16 означает, что на самом нижнем уровне будет 16 чисел,
      * и с каждым верхним уровнем количество чисел будет уменьшаться пропорционально.
      */
@@ -57,7 +56,6 @@ public class DotController extends JPanel {
      * HEIGHT определяет количество уровней в треугольнике случайных чисел.
      * Увеличение этого значения увеличивает высоту треугольника,
      * добавляя больше уровней чисел.
-     *
      * Например, HEIGHT = 48 означает, что треугольник будет состоять из 48 уровней,
      * начиная с 16 чисел на нижнем уровне и уменьшаясь по одному числу на каждый верхний уровень.
      */
@@ -67,7 +65,6 @@ public class DotController extends JPanel {
      * LEVEL_HEIGHT определяет вертикальное расстояние между уровнями треугольника.
      * Увеличение этого значения увеличивает высоту каждого уровня,
      * делая треугольник выше и уменьшая плотность размещения чисел по вертикали.
-     *
      * Например, LEVEL_HEIGHT = 19 пикселей означает, что между каждым уровнем будет 19 пикселей вертикального пространства.
      */
     private static final int LEVEL_HEIGHT = 19;
@@ -76,7 +73,6 @@ public class DotController extends JPanel {
      * NUM_SPACING определяет горизонтальное расстояние между числами на одном уровне треугольника.
      * Увеличение этого значения увеличивает расстояние между числами,
      * делая треугольник шире и числа менее плотными по горизонтали.
-     *
      * Например, NUM_SPACING = 60 пикселей означает, что между двумя соседними числами на одном уровне будет 60 пикселей горизонтального пространства.
      */
     private static final int NUM_SPACING = 60;
@@ -84,7 +80,6 @@ public class DotController extends JPanel {
     // Константы для сообщений и логирования
     private static final String ERROR_NO_RANDOM_NUMBERS = "Больше нет доступных случайных чисел: ";
     private static final String LOG_DOTS_PROCESSED = "Обработано %d новых точек.";
-    private static final String LOG_ERROR_MOVEMENT = "Обнаружена ошибка при перемещении точек: %s";
 
     // Константы для текстов на экране
     private static final String DRAW_STRING_SAMPLE_INDEX = "Порядковый номер выборки: %d";
@@ -248,7 +243,7 @@ public class DotController extends JPanel {
         int currentNumberIndex = 0; // Индекс текущего числа для отрисовки
 
         // Использование константы для смещения правого треугольника
-        int offsetX = RIGHT_TRIANGLE_OFFSET_X; // Смещение вправо на 1000 пикселей
+        // Смещение вправо на 1000 пикселей
 
         // Начинаем от основания треугольника и двигаемся вверх по уровням
         for (int i = HEIGHT; i > 0; i--) {
@@ -256,15 +251,18 @@ public class DotController extends JPanel {
             // Пропорционально уменьшенное число для верхних уровней
             int numbersInLevel = BASE_WIDTH * i / HEIGHT;
 
+            // Обеспечиваем, что numbersInLevel >= 1
+            numbersInLevel = Math.max(1, numbersInLevel);
+
             // Рассчитываем начальную позицию X для текущего уровня
-            // Центрируем уровень по X и смещаем вправо на offsetX
-            int startX = ((SIZE - numbersInLevel * NUM_SPACING) / 2) + offsetX;
+            // Мы центрируем уровень по X и смещаем вправо на offsetX
+            int startX = ((SIZE - numbersInLevel * NUM_SPACING) / 2) + RIGHT_TRIANGLE_OFFSET_X;
 
             // Рассчитываем позицию Y для текущего уровня
-            // Начинаем от нижней части панели и двигаемся вверх с шагом LEVEL_HEIGHT
+            // Мы начинаем от нижней части панели и двигаемся вверх с шагом LEVEL_HEIGHT
             int startY = SIZE - (level * LEVEL_HEIGHT);
 
-            // Отрисовываем числа на текущем уровне
+            // Мы отрисовываем числа на текущем уровне
             for (int j = 0; j < numbersInLevel && currentNumberIndex < numbers.size(); j++) {
                 // Позиция X для каждого числа на уровне
                 int x = startX + (j * NUM_SPACING);
@@ -292,6 +290,9 @@ public class DotController extends JPanel {
         // Выбор случайного уровня
         int level = random.nextInt(HEIGHT);
         int numbersInLevel = BASE_WIDTH * (HEIGHT - level) / HEIGHT;
+
+        // Обеспечиваем, что numbersInLevel >= 1
+        numbersInLevel = Math.max(1, numbersInLevel);
 
         // Рассчитываем начальную позицию X для уровня с использованием константы
         int startX = ((SIZE - numbersInLevel * NUM_SPACING) / 2) + RIGHT_TRIANGLE_OFFSET_X; // Смещение вправо на 1000 пикселей
